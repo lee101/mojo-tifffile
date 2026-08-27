@@ -1,6 +1,5 @@
 """Compute kernels used by the Python TIFF reader and writer."""
 
-from std.algorithm import parallelize
 from std.sys.info import num_physical_cores, simd_width_of as simdwidthof
 
 comptime BPtr = UnsafePointer[UInt8, AnyOrigin[mut=True]]
@@ -333,7 +332,7 @@ def predictor(
         if rows * row_values * itemsize >= PARALLEL_PREDICTOR_BYTES else 1
     )
 
-    @parameter
+    @__parameter
     def process(worker: Int):
         var y0 = worker * rows // workers
         var y1 = (worker + 1) * rows // workers
@@ -348,10 +347,8 @@ def predictor(
             is_little,
         )
 
-    if workers > 1:
-        parallelize[process](workers, workers)
-    else:
-        process(0)
+    for worker in range(workers):
+        process(worker)
     return 0
 
 
@@ -381,7 +378,7 @@ def predictor_copy(
         if rows * row_values * itemsize >= PARALLEL_PREDICTOR_BYTES else 1
     )
 
-    @parameter
+    @__parameter
     def process(worker: Int):
         var y0 = worker * rows // workers
         var y1 = (worker + 1) * rows // workers
@@ -397,10 +394,8 @@ def predictor_copy(
             is_little,
         )
 
-    if workers > 1:
-        parallelize[process](workers, workers)
-    else:
-        process(0)
+    for worker in range(workers):
+        process(worker)
     return 0
 
 
