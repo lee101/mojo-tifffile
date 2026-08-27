@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -14,6 +15,8 @@ _new_bytes.restype = ctypes.py_object
 _bytes_address = ctypes.pythonapi.PyBytes_AsString
 _bytes_address.argtypes = [ctypes.py_object]
 _bytes_address.restype = ctypes.c_void_p
+_PARALLEL_PREDICTOR_BYTES = 4 * 1024 * 1024
+_MAX_PREDICTOR_WORKERS = 8
 
 
 def _buffer(data: bytes | bytearray | memoryview, *, writable: bool = False) -> np.ndarray:
@@ -122,7 +125,7 @@ def _predictor(data, shape, itemsize, byteorder, decode):
     if not source.size:
         return b""
     result = _new_bytes(None, source.size)
-    status = lib().mti_predictor_copy(
+    _predictor_copy_addresses(
         source.ctypes.data,
         _bytes_address(result),
         rows,
@@ -132,9 +135,42 @@ def _predictor(data, shape, itemsize, byteorder, decode):
         int(decode),
         int(byteorder != ">"),
     )
-    if status:
-        raise ValueError(f"unsupported predictor layout (status {status})")
     return result
+
+
+def _predictor_copy_addresses(
+    source, destination, rows, width, samples, itemsize, decode, little
+):
+    kernels = lib()
+    rowbytes = width * samples * itemsize
+    workers = (
+        min(_MAX_PREDICTOR_WORKERS, rows)
+        if rows * rowbytes >= _PARALLEL_PREDICTOR_BYTES
+        else 1
+    )
+
+    def process(worker):
+        y0 = worker * rows // workers
+        y1 = (worker + 1) * rows // workers
+        offset = y0 * rowbytes
+        status = kernels.mti_predictor_copy(
+            source + offset,
+            destination + offset,
+            y1 - y0,
+            width,
+            samples,
+            itemsize,
+            decode,
+            little,
+        )
+        if status:
+            raise ValueError(f"unsupported predictor layout (status {status})")
+
+    if workers == 1:
+        process(0)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            list(executor.map(process, range(workers)))
 
 
 def _predictor_inplace(data, shape, itemsize, byteorder, decode):
@@ -163,7 +199,7 @@ def _predictor_copy_into(data, destination, shape, itemsize, byteorder, decode):
             raise ValueError("predictor source and destination overlap")
         _predictor_buffer(target, shape, itemsize, byteorder, decode)
         return
-    status = lib().mti_predictor_copy(
+    _predictor_copy_addresses(
         source.ctypes.data,
         target.ctypes.data,
         rows,
@@ -173,8 +209,6 @@ def _predictor_copy_into(data, destination, shape, itemsize, byteorder, decode):
         int(decode),
         int(byteorder != ">"),
     )
-    if status:
-        raise ValueError(f"unsupported predictor layout (status {status})")
 
 
 def _predictor_buffer(destination, shape, itemsize, byteorder, decode):

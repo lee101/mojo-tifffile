@@ -92,19 +92,21 @@ upstream tifffile using imagecodecs.
 
 | case | mojo-tifffile | upstream | upstream / Mojo |
 | --- | ---: | ---: | ---: |
-| PackBits encode, 16 MiB | 29.14 ms | 28.65 ms | 0.98x (slower) |
-| PackBits decode, 16 MiB | 16.96 ms | 30.29 ms | 1.79x (faster) |
-| Horizontal predictor, 4096x4096 u16 | 24.48 ms | 26.50 ms | 1.08x (faster) |
-| Deflate TIFF read, 4096x4096 u16 | 62.57 ms | 60.66 ms | 0.97x (slower) |
-| PackBits TIFF write, 4096x4096 u16 | 62.03 ms | 40.38 ms | 0.65x (slower) |
+| PackBits encode, 16 MiB | 18.64 ms | 21.64 ms | 1.16x (faster) |
+| PackBits decode, 16 MiB | 11.44 ms | 28.40 ms | 2.48x (faster) |
+| Horizontal predictor, 4096x4096 u16 | 9.00 ms | 16.02 ms | 1.78x (faster) |
+| Deflate TIFF read, 4096x4096 u16 | 48.90 ms | 53.15 ms | 1.09x (faster) |
+| PackBits TIFF write, 4096x4096 u16 | 43.84 ms | 37.00 ms | 0.84x (slower) |
 
-The horizontal predictor now fuses the output copy with SIMD differencing and
-parallelizes independent rows above 4 MiB. Large compressed TIFFs process
-independent strips with up to eight CPU workers above 8 MiB, while small inputs
-remain serial. PackBits decoding writes directly into the final image buffer,
-and predicted writes transform the page once before strip compression. The
-PackBits TIFF writer and Deflate TIFF reader were slower than upstream in this
-run; the standalone PackBits encoder was approximately even but slightly slower.
+The horizontal predictor fuses the output copy with SIMD differencing and sends
+zero-copy row ranges to up to eight CPU workers above 4 MiB. Large compressed
+TIFFs process independent strips with up to eight CPU workers above 8 MiB, while
+small inputs remain serial. PackBits literal packets use unaligned SIMD copies
+with scalar tails, and the writer passes their NumPy buffers directly to file
+I/O instead of copying each strip to `bytes`. Deflate decompression starts with
+the exact decoded strip size to avoid repeated output-buffer growth. The
+PackBits TIFF writer remained slower than upstream in this run; the predictor
+and Deflate reader moved ahead.
 
 There is no GPU path. Horizontal prediction performs one integer operation for
 roughly three element transfers, far below two operations per byte, while

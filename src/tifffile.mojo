@@ -440,8 +440,17 @@ def packbits_encode(src_address: Int, size: Int, dst_address: Int, capacity: Int
                 return -2
             dst[written] = UInt8(count - 1)
             written += 1
-            for j in range(count):
-                dst[written + j] = src[start + j]
+            comptime W = simdwidthof[DType.float64]()
+            var copied = 0
+            while copied + W <= count:
+                dst.store(
+                    written + copied,
+                    src.load[width=W, alignment=1](start + copied),
+                )
+                copied += W
+            while copied < count:
+                dst[written + copied] = src[start + copied]
+                copied += 1
             written += count
     return written
 

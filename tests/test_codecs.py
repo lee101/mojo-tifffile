@@ -23,6 +23,14 @@ def test_packbits_published_control_byte_cases():
     assert mt.packbits_decode(encoded, 7) == b"ABCZZZQ"
 
 
+@pytest.mark.parametrize("size", [3, 4, 5, 127, 128, 129, 133])
+def test_packbits_literal_simd_tails(size):
+    data = bytes(i % 251 for i in range(size))
+    encoded = mt.packbits_encode(data)
+    assert imagecodecs.packbits_decode(encoded) == data
+    assert mt.packbits_decode(encoded, size) == data
+
+
 def test_packbits_rejects_truncated_stream():
     with pytest.raises(ValueError, match="truncated"):
         mt.packbits_decode(b"\x04abc", 5)
@@ -57,10 +65,11 @@ def test_predictor_simd_remainders(width, samples):
     assert mt.delta_decode(encoded, array.shape, array.dtype.itemsize) == array.tobytes()
 
 
-def test_predictor_parallel_threshold():
+@pytest.mark.parametrize("rows", [1023, 1025])
+def test_predictor_parallel_threshold(rows):
     rng = np.random.default_rng(11)
     array = rng.integers(
-        0, 65536, size=(1025, 2049, 1), dtype=np.uint16
+        0, 65536, size=(rows, 2049, 1), dtype=np.uint16
     )
     encoded = mt.delta_encode(array, array.shape, array.dtype.itemsize)
     assert encoded == imagecodecs.delta_encode(array, axis=-2).tobytes()

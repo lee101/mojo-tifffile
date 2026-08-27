@@ -18,12 +18,12 @@ import numpy as np
 
 from ._lib import lib as _codec_lib
 from .codecs import (
+    _packbits_encode_buffer,
     _packbits_decode_into,
     _predictor_copy_into,
     _predictor_inplace,
     bitorder_decode,
     delta_encode,
-    packbits_encode,
 )
 
 __version__ = "0.1.0"
@@ -304,7 +304,7 @@ class TiffPage:
                         f"decoded strip has {actual} bytes, expected {size}"
                     )
             elif self.compression in (COMPRESSION.ADOBE_DEFLATE, COMPRESSION.DEFLATE):
-                chunk = zlib.decompress(encoded)
+                chunk = zlib.decompress(encoded, bufsize=size)
                 if len(chunk) < size:
                     raise TiffFileError(
                         f"decoded strip has {len(chunk)} bytes, expected {size}"
@@ -804,7 +804,7 @@ class TiffWriter:
             if compression == COMPRESSION.NONE:
                 encoded = raw
             elif compression == COMPRESSION.PACKBITS:
-                encoded = packbits_encode(raw)
+                encoded = _packbits_encode_buffer(raw)
             elif compression in (COMPRESSION.ADOBE_DEFLATE, COMPRESSION.DEFLATE):
                 encoded = zlib.compress(raw)
             else:
@@ -824,11 +824,13 @@ class TiffWriter:
         else:
             encoded_strips = [encode_strip(spec) for spec in strip_specs]
         total_uncompressed = 0
+        position = self._fh.tell()
         for encoded, raw_size in encoded_strips:
-            offsets.append(self._fh.tell())
+            offsets.append(position)
             bytecounts.append(len(encoded))
             total_uncompressed += raw_size
-            self._fh.write(encoded)
+            position += len(encoded)
+        self._fh.writelines(encoded for encoded, _ in encoded_strips)
         tags = [
             (256, 4, width),
             (257, 4, height),
