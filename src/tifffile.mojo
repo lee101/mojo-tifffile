@@ -55,8 +55,8 @@ def predictor_rows(
                 var x = row_values
                 while x - W >= samples:
                     x -= W
-                    var current = p.load[width=W, alignment=1](base + x)
-                    var previous = p.load[width=W, alignment=1](
+                    var current = p.unsafe_load[width=W, alignment=1](base + x)
+                    var previous = p.unsafe_load[width=W, alignment=1](
                         base + x - samples
                     )
                     p.store(base + x, current - previous)
@@ -78,8 +78,8 @@ def predictor_rows(
                 var x = row_values
                 while x - W >= samples:
                     x -= W
-                    var current = q.load[width=W, alignment=1](base + x)
-                    var previous = q.load[width=W, alignment=1](
+                    var current = q.unsafe_load[width=W, alignment=1](base + x)
+                    var previous = q.unsafe_load[width=W, alignment=1](
                         base + x - samples
                     )
                     q.store(base + x, current - previous)
@@ -101,8 +101,8 @@ def predictor_rows(
                 var x = row_values
                 while x - W >= samples:
                     x -= W
-                    var current = q.load[width=W, alignment=1](base + x)
-                    var previous = q.load[width=W, alignment=1](
+                    var current = q.unsafe_load[width=W, alignment=1](base + x)
+                    var previous = q.unsafe_load[width=W, alignment=1](
                         base + x - samples
                     )
                     q.store(base + x, current - previous)
@@ -124,8 +124,8 @@ def predictor_rows(
                 var x = row_values
                 while x - W >= samples:
                     x -= W
-                    var current = q.load[width=W, alignment=1](base + x)
-                    var previous = q.load[width=W, alignment=1](
+                    var current = q.unsafe_load[width=W, alignment=1](base + x)
+                    var previous = q.unsafe_load[width=W, alignment=1](
                         base + x - samples
                     )
                     q.store(base + x, current - previous)
@@ -187,8 +187,8 @@ def predictor_copy_rows(
                 while x + W <= row_values:
                     dst.store(
                         base + x,
-                        src.load[width=W, alignment=1](base + x)
-                        - src.load[width=W, alignment=1](
+                        src.unsafe_load[width=W, alignment=1](base + x)
+                        - src.unsafe_load[width=W, alignment=1](
                             base + x - samples
                         ),
                     )
@@ -217,8 +217,8 @@ def predictor_copy_rows(
                 while x + W <= row_values:
                     d.store(
                         base + x,
-                        s.load[width=W, alignment=1](base + x)
-                        - s.load[width=W, alignment=1](
+                        s.unsafe_load[width=W, alignment=1](base + x)
+                        - s.unsafe_load[width=W, alignment=1](
                             base + x - samples
                         ),
                     )
@@ -247,8 +247,8 @@ def predictor_copy_rows(
                 while x + W <= row_values:
                     d.store(
                         base + x,
-                        s.load[width=W, alignment=1](base + x)
-                        - s.load[width=W, alignment=1](
+                        s.unsafe_load[width=W, alignment=1](base + x)
+                        - s.unsafe_load[width=W, alignment=1](
                             base + x - samples
                         ),
                     )
@@ -277,8 +277,8 @@ def predictor_copy_rows(
                 while x + W <= row_values:
                     d.store(
                         base + x,
-                        s.load[width=W, alignment=1](base + x)
-                        - s.load[width=W, alignment=1](
+                        s.unsafe_load[width=W, alignment=1](base + x)
+                        - s.unsafe_load[width=W, alignment=1](
                             base + x - samples
                         ),
                     )
@@ -445,7 +445,7 @@ def packbits_encode(src_address: Int, size: Int, dst_address: Int, capacity: Int
             while copied + W <= count:
                 dst.store(
                     written + copied,
-                    src.load[width=W, alignment=1](start + copied),
+                    src.unsafe_load[width=W, alignment=1](start + copied),
                 )
                 copied += W
             while copied < count:
